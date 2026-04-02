@@ -3,7 +3,7 @@
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { TwentyClient } from './client/twenty-client.js';
 import { registerPersonTools, registerCompanyTools, registerTaskTools, registerOpportunityTools } from './tools/index.js';
 import { WellKnownRoutes } from './routes/well-known.js';
@@ -65,6 +65,9 @@ async function main() {
                'https://api.twenty.com',
     };
   }
+
+  // Active MCP Transports keyed by sessionId
+  const activeTransports = new Map<string, SSEServerTransport>();
 
   // Create HTTP server
   const httpServer = createServer(async (req, res) => {
@@ -164,67 +167,62 @@ async function main() {
         return;
       }
 
-      // Create MCP server with Twenty client
-      const server = new McpServer({
-        name: 'twenty-mcp-server',
-        version: '1.0.0',
-      }, {
-        capabilities: {
-          tools: {},
-          experimental: {
-            authentication: {
-              type: 'oauth2',
-              required: authEnabled && process.env.REQUIRE_AUTH === 'true',
-              enabled: authEnabled,
-              discoveryEndpoints: authEnabled ? {
-                protectedResource: '/.well-known/oauth-protected-resource',
-                authorizationServer: '/.well-known/oauth-authorization-server'
-              } : undefined
-            }
-          }
-        }
-      });
+      // Route by sessionId for standard MCP SSE Client compatibility
+      const urlObj = new URL(req.url!, `http://localhost:${port}`);
+      const sessionId = urlObj.searchParams.get('sessionId');
 
-      const client = new TwentyClient({
-        apiKey: config.apiKey,
-        baseUrl: config.baseUrl,
-      });
-
-      // Register tools
-      registerPersonTools(server, client);
-      registerCompanyTools(server, client);
-      registerTaskTools(server, client);
-      registerOpportunityTools(server, client);
-
-      // Create streamable HTTP transport
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => randomUUID(),
-      });
-
-      // Connect server to transport
-      await server.connect(transport);
-
-      // Parse request body for POST requests
-      let body: any = undefined;
       if (req.method === 'POST') {
-        const chunks: Buffer[] = [];
-        req.on('data', (chunk) => chunks.push(chunk));
-        req.on('end', async () => {
-          try {
-            const bodyText = Buffer.concat(chunks).toString();
-            if (bodyText.trim()) {
-              body = JSON.parse(bodyText);
+        if (!sessionId || !activeTransports.has(sessionId)) {
+          console.error("Session not found for POST request:", sessionId);
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Session not found or server not initialized' }));
+          return;
+        }
+        const transport = activeTransports.get(sessionId)!;
+        await transport.handlePostMessage(req, res);
+      } else {
+        // Create new session for GET (establishing an SSE stream)
+        const transport = new SSEServerTransport("/mcp", res);
+        activeTransports.set(transport.sessionId, transport);
+
+        transport.onclose = () => {
+          activeTransports.delete(transport.sessionId);
+        };
+
+        // Create MCP server with Twenty client
+        const server = new McpServer({
+          name: 'twenty-mcp-server',
+          version: '1.0.0',
+        }, {
+          capabilities: {
+            tools: {},
+            experimental: {
+              authentication: {
+                type: 'oauth2',
+                required: authEnabled && process.env.REQUIRE_AUTH === 'true',
+                enabled: authEnabled,
+                discoveryEndpoints: authEnabled ? {
+                  protectedResource: '/.well-known/oauth-protected-resource',
+                  authorizationServer: '/.well-known/oauth-authorization-server'
+                } : undefined
+              }
             }
-            await transport.handleRequest(req, res, body);
-          } catch (error) {
-            console.error('Error parsing request body:', error);
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Invalid JSON in request body' }));
           }
         });
-      } else {
-        // Handle GET/DELETE requests
-        await transport.handleRequest(req, res, body);
+
+        const client = new TwentyClient({
+          apiKey: config.apiKey,
+          baseUrl: config.baseUrl,
+        });
+
+        // Register tools
+        registerPersonTools(server, client);
+        registerCompanyTools(server, client);
+        registerTaskTools(server, client);
+        registerOpportunityTools(server, client);
+
+        // Connect server to transport
+        await server.connect(transport);
       }
     } catch (error) {
       console.error('Error handling request:', error);

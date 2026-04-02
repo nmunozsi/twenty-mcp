@@ -5,6 +5,7 @@ import { join } from 'path';
 import crypto from 'crypto';
 import { isIP } from 'node:net';
 import { spawn } from 'child_process';
+import { crossPlatformSpawn } from '../platform-utils.js';
 
 interface SetupOptions {
   oauth?: boolean;
@@ -304,7 +305,7 @@ async function testConfiguration() {
   console.log(chalk.bold.blue('\n🧪 Testing Configuration'));
   
   return new Promise<void>((resolve, reject) => {
-    const testProcess = spawn('npm', ['run', 'validate'], {
+    const testProcess = crossPlatformSpawn('npm', ['run', 'validate'], {
       stdio: 'pipe',
       cwd: process.cwd(),
     });

@@ -59,13 +59,15 @@ class MCPTestRunner {
     return new Promise((resolve, reject) => {
       logger.log('Starting MCP server...');
       
-      this.server = spawn('npm', ['run', 'dev'], {
+      const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+      this.server = spawn(npmCmd, ['run', 'dev'], {
         env: {
           ...process.env,
           TWENTY_API_KEY: process.env.TWENTY_API_KEY,
           TWENTY_BASE_URL: process.env.TWENTY_BASE_URL || 'https://twenty.app.jezweb.com'
         },
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        shell: process.platform === 'win32'
       });
 
       this.server.stderr.once('data', (data) => {

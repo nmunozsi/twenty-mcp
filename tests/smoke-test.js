@@ -15,9 +15,11 @@ async function testServerStartup() {
   console.log('\n▶ Test: Server startup without API key');
   
   return new Promise((resolve) => {
-    const server = spawn('npm', ['run', 'dev'], {
+    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    const server = spawn(npmCmd, ['run', 'dev'], {
       env: { ...process.env, TWENTY_API_KEY: undefined },
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
+      shell: process.platform === 'win32'
     });
     
     let output = '';
@@ -46,8 +48,10 @@ async function testBuild() {
   console.log('\n▶ Test: TypeScript build');
   
   return new Promise((resolve) => {
-    const build = spawn('npm', ['run', 'build'], {
-      stdio: ['pipe', 'pipe', 'pipe']
+    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    const build = spawn(npmCmd, ['run', 'build'], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      shell: process.platform === 'win32'
     });
     
     build.on('close', (code) => {

@@ -107,9 +107,11 @@ async function executeTests() {
   
   // Start MCP server
   console.log('\n🚀 Starting MCP Server...');
-  const server = spawn('npm', ['run', 'dev'], {
+  const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  const server = spawn(npmCmd, ['run', 'dev'], {
     env: process.env,
-    stdio: ['pipe', 'pipe', 'pipe']
+    stdio: ['pipe', 'pipe', 'pipe'],
+    shell: process.platform === 'win32'
   });
   
   // Wait for server to start

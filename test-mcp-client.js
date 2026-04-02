@@ -12,9 +12,11 @@ if (!process.env.TWENTY_API_KEY) {
 process.env.TWENTY_BASE_URL = process.env.TWENTY_BASE_URL || 'https://twenty.app.jezweb.com';
 
 // Spawn the MCP server
-const server = spawn('npm', ['run', 'dev'], {
+const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const server = spawn(npmCmd, ['run', 'dev'], {
   env: process.env,
-  stdio: ['pipe', 'pipe', 'pipe']
+  stdio: ['pipe', 'pipe', 'pipe'],
+  shell: process.platform === 'win32'
 });
 
 // Create readline interface for server output
