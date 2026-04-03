@@ -169,7 +169,7 @@ Contact ID: ${opportunity.pointOfContactId || 'None'}`
       endDate: z.string().optional().describe('End date for close date range (ISO 8601)'),
       companyId: z.string().optional().describe('Filter by company ID'),
       limit: z.number().default(20).describe('Maximum number of results'),
-      offset: z.number().default(0).describe('Number of results to skip')
+      after: z.string().optional().describe('Cursor for pagination')
     },
     async (input) => {
       try {
@@ -234,7 +234,7 @@ Contact ID: ${opportunity.pointOfContactId || 'None'}`
             const amount = opp.amount 
               ? `$${(opp.amount.amountMicros / 1000000).toFixed(2)}`
               : 'No amount';
-            output += `  - ${opp.name}: ${amount}\n`;
+            output += `  - ${opp.name} (ID: ${opp.id}): ${amount}\n`;
           });
           
           output += '\n';

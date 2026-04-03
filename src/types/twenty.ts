@@ -63,6 +63,7 @@ export interface Company {
   annualRecurringRevenue?: Currency;
   idealCustomerProfile?: boolean;
   accountOwnerId?: string;
+  people?: Person[];
 }
 
 export interface Task {

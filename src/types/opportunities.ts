@@ -47,7 +47,7 @@ export interface SearchOpportunitiesInput {
   endDate?: string;
   companyId?: string;
   limit?: number;
-  offset?: number;
+  after?: string;
 }
 
 export interface OpportunityStage {

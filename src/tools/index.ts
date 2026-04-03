@@ -105,8 +105,37 @@ export function registerPersonTools(server: McpServer, client: TwentyClient) {
     },
     async (args) => {
     try {
-      const { id, ...updates } = args;
-      const person = await client.updatePerson(id, updates);
+      const { id, ...updateData } = args;
+      
+      // Transform flat input to Twenty's nested structure
+      const updates = {
+        ...((updateData.firstName || updateData.lastName) && {
+          name: {
+            ...(updateData.firstName && { firstName: updateData.firstName }),
+            ...(updateData.lastName && { lastName: updateData.lastName }),
+          }
+        }),
+        ...(updateData.email && {
+          emails: {
+            primaryEmail: updateData.email,
+          },
+        }),
+        ...(updateData.phone && {
+          phones: {
+            primaryPhoneNumber: updateData.phone,
+          },
+        }),
+        ...(updateData.companyId && { companyId: updateData.companyId }),
+        ...(updateData.jobTitle && { jobTitle: updateData.jobTitle }),
+        ...(updateData.linkedinUrl && {
+          linkedinLink: {
+            primaryLinkUrl: updateData.linkedinUrl,
+          },
+        }),
+        ...(updateData.city && { city: updateData.city }),
+      };
+
+      const person = await client.updatePerson(id, updates as any);
       return {
         content: [{
           type: 'text' as const,

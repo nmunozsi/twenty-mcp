@@ -249,14 +249,28 @@ export class TwentyClient {
                 currencyCode
               }
               idealCustomerProfile
+              people(first: 10) {
+                edges {
+                  node {
+                    id
+                    name { firstName lastName }
+                    emails { primaryEmail }
+                    jobTitle
+                  }
+                }
+              }
             }
           }
         }
       }
     `;
 
-    const result = await this.client.request(query, { filter: { id: { eq: id } } }) as { companies: { edges: { node: Company }[] } };
-    return result.companies.edges[0]?.node;
+    const result = await this.client.request(query, { filter: { id: { eq: id } } }) as any;
+    const node = result.companies.edges[0]?.node;
+    if (node && node.people) {
+      node.people = node.people.edges.map((e: any) => e.node);
+    }
+    return node;
   }
 
   async updateCompany(id: string, updates: Partial<Company>): Promise<Company> {
@@ -358,7 +372,7 @@ export class TwentyClient {
         createTask(data: $data) {
           id
           title
-          body
+          bodyV2 { markdown }
           dueAt
           status
           assigneeId
@@ -366,8 +380,18 @@ export class TwentyClient {
       }
     `;
 
-    const result = await this.client.request(mutation, { data: task }) as { createTask: Task };
-    return result.createTask;
+    const dataPayload: any = { ...task };
+    if (dataPayload.body) {
+      dataPayload.bodyV2 = { markdown: dataPayload.body };
+      delete dataPayload.body;
+    }
+
+    const result = await this.client.request(mutation, { data: dataPayload }) as any;
+    const createdTask = result.createTask;
+    if (createdTask.bodyV2?.markdown) {
+      createdTask.body = createdTask.bodyV2.markdown;
+    }
+    return createdTask;
   }
 
   async getTasks(options: SearchOptions = {}): Promise<Task[]> {
@@ -378,7 +402,7 @@ export class TwentyClient {
             node {
               id
               title
-              body
+              bodyV2 { markdown }
               status
             }
           }
@@ -386,9 +410,15 @@ export class TwentyClient {
       }
     `;
 
-    const result = await this.client.request(query) as { tasks: { edges: { node: Task }[] } };
+    const result = await this.client.request(query) as any;
 
-    return result.tasks.edges.map(edge => edge.node);
+    return result.tasks.edges.map((edge: any) => {
+      const node = edge.node;
+      if (node.bodyV2?.markdown) {
+        node.body = node.bodyV2.markdown;
+      }
+      return node;
+    });
   }
 
   async createNote(note: Note): Promise<Note> {
@@ -397,14 +427,25 @@ export class TwentyClient {
         createNote(data: $data) {
           id
           title
-          body
-          authorId
+          bodyV2 { markdown }
         }
       }
     `;
 
-    const result = await this.client.request(mutation, { data: note }) as { createNote: Note };
-    return result.createNote;
+    const dataPayload: any = { ...note };
+    if (dataPayload.body) {
+      dataPayload.bodyV2 = { markdown: dataPayload.body };
+      delete dataPayload.body;
+    }
+    // authorId is no longer supported on note
+    delete dataPayload.authorId;
+
+    const result = await this.client.request(mutation, { data: dataPayload }) as any;
+    const createdNote = result.createNote;
+    if (createdNote.bodyV2?.markdown) {
+      createdNote.body = createdNote.bodyV2.markdown;
+    }
+    return createdNote;
   }
 
   async createOpportunity(opportunity: CreateOpportunityInput): Promise<Opportunity> {
@@ -486,8 +527,8 @@ export class TwentyClient {
 
   async searchOpportunities(input: SearchOpportunitiesInput): Promise<Opportunity[]> {
     const query = `
-      query SearchOpportunities($filter: OpportunityFilterInput, $first: Int, $skip: Int) {
-        opportunities(filter: $filter, first: $first, skip: $skip) {
+      query SearchOpportunities($filter: OpportunityFilterInput, $first: Int, $after: String) {
+        opportunities(filter: $filter, first: $first, after: $after) {
           edges {
             node {
               id
@@ -537,7 +578,7 @@ export class TwentyClient {
     const result = await this.client.request(query, {
       filter: Object.keys(filters).length > 0 ? filters : undefined,
       first: input.limit || 20,
-      skip: input.offset || 0,
+      after: input.after,
     }) as { opportunities: { edges: { node: Opportunity }[] } };
 
     return result.opportunities.edges.map(edge => edge.node);
@@ -592,7 +633,7 @@ export class TwentyClient {
             node {
               id
               title
-              body
+              bodyV2 { markdown blocknote }
               status
               dueAt
               assigneeId
@@ -618,7 +659,7 @@ export class TwentyClient {
             node {
               id
               title
-              body
+              bodyV2 { markdown blocknote }
               createdAt
               updatedAt
             }
@@ -646,7 +687,7 @@ export class TwentyClient {
         id: task.id,
         type: 'task',
         title: task.title,
-        body: task.body,
+        body: task.bodyV2?.markdown || task.bodyV2?.blocknote || '',
         createdAt: task.createdAt,
         updatedAt: task.updatedAt,
         authorId: task.assigneeId,
@@ -660,7 +701,7 @@ export class TwentyClient {
         id: note.id,
         type: 'note',
         title: note.title,
-        body: note.body,
+        body: note.bodyV2?.markdown || note.bodyV2?.blocknote || '',
         createdAt: note.createdAt,
         updatedAt: note.updatedAt,
         authorId: undefined,
