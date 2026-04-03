@@ -3,10 +3,10 @@ import { TwentyConfig, Person, Company, Task, Note, SearchOptions } from '../typ
 import { Opportunity, CreateOpportunityInput, UpdateOpportunityInput, SearchOpportunitiesInput } from '../types/opportunities.js';
 import { Activity, Comment, CreateCommentInput, ActivityFilter, EntityActivitiesInput, ActivityTimeline } from '../types/activities.js';
 import { ObjectMetadata, FieldMetadata, ObjectSchema, ObjectSummary, MetadataQueryOptions, FieldQueryOptions } from '../types/metadata.js';
-import { 
-  RelationshipSummary, 
-  CompanyContactsResult, 
-  PersonOpportunitiesResult, 
+import {
+  RelationshipSummary,
+  CompanyContactsResult,
+  PersonOpportunitiesResult,
   OpportunityActivitiesResult,
   RelationshipHierarchy,
   OrphanedRecords,
@@ -99,7 +99,7 @@ export class TwentyClient {
 
   async updatePerson(id: string, updates: Partial<Person>): Promise<Person> {
     const mutation = `
-      mutation UpdatePerson($id: ID!, $data: PersonUpdateInput!) {
+      mutation UpdatePerson($id: UUID!, $data: PersonUpdateInput!) {
         updatePerson(id: $id, data: $data) {
           id
           name {
@@ -261,7 +261,7 @@ export class TwentyClient {
 
   async updateCompany(id: string, updates: Partial<Company>): Promise<Company> {
     const mutation = `
-      mutation UpdateCompany($id: ID!, $data: CompanyUpdateInput!) {
+      mutation UpdateCompany($id: UUID!, $data: CompanyUpdateInput!) {
         updateCompany(id: $id, data: $data) {
           id
           name
@@ -462,7 +462,7 @@ export class TwentyClient {
   async updateOpportunity(input: UpdateOpportunityInput): Promise<Opportunity> {
     const { id, ...data } = input;
     const mutation = `
-      mutation UpdateOpportunity($id: ID!, $data: OpportunityUpdateInput!) {
+      mutation UpdateOpportunity($id: UUID!, $data: OpportunityUpdateInput!) {
         updateOpportunity(id: $id, data: $data) {
           id
           name
@@ -509,25 +509,25 @@ export class TwentyClient {
     `;
 
     const filters: any = {};
-    
+
     if (input.query) {
       filters.name = { ilike: `%${input.query}%` };
     }
-    
+
     if (input.stage) {
       filters.stage = { eq: input.stage };
     }
-    
+
     if (input.companyId) {
       filters.companyId = { eq: input.companyId };
     }
-    
+
     if (input.startDate || input.endDate) {
       filters.closeDate = {};
       if (input.startDate) filters.closeDate.gte = input.startDate;
       if (input.endDate) filters.closeDate.lte = input.endDate;
     }
-    
+
     if (input.minAmount || input.maxAmount) {
       filters.amount = { amountMicros: {} };
       if (input.minAmount) filters.amount.amountMicros.gte = input.minAmount * 1000000;
@@ -569,7 +569,7 @@ export class TwentyClient {
 
     const result = await this.client.request(query) as { opportunities: { edges: { node: Opportunity }[] } };
     const opportunities = result.opportunities.edges.map(edge => edge.node);
-    
+
     // Group by stage
     const groupedByStage: Record<string, Opportunity[]> = {};
     opportunities.forEach(opp => {
@@ -579,7 +579,7 @@ export class TwentyClient {
       }
       groupedByStage[stage].push(opp);
     });
-    
+
     return groupedByStage;
   }
 
@@ -633,7 +633,7 @@ export class TwentyClient {
       this.client.request(tasksQuery, { first: limit }),
       this.client.request(notesQuery, { first: limit })
     ]);
-    
+
     const typedTasksResult = tasksResult as { tasks: { edges: { node: any }[] } };
     const typedNotesResult = notesResult as { notes: { edges: { node: any }[] } };
 
@@ -673,23 +673,23 @@ export class TwentyClient {
 
     // Apply filters
     let filteredActivities = activities;
-    
+
     if (filter?.type && filter.type.length > 0) {
       filteredActivities = filteredActivities.filter(activity => filter.type!.includes(activity.type));
     }
-    
+
     if (filter?.dateFrom) {
-      filteredActivities = filteredActivities.filter(activity => 
+      filteredActivities = filteredActivities.filter(activity =>
         new Date(activity.createdAt) >= new Date(filter.dateFrom!)
       );
     }
-    
+
     if (filter?.dateTo) {
-      filteredActivities = filteredActivities.filter(activity => 
+      filteredActivities = filteredActivities.filter(activity =>
         new Date(activity.createdAt) <= new Date(filter.dateTo!)
       );
     }
-    
+
     if (filter?.authorId) {
       filteredActivities = filteredActivities.filter(activity => activity.authorId === filter.authorId);
     }
@@ -778,15 +778,15 @@ export class TwentyClient {
 
     // Filter based on options
     let filteredObjects = allObjects;
-    
+
     if (options.activeOnly !== false) {
       filteredObjects = filteredObjects.filter(obj => obj.isActive);
     }
-    
+
     if (options.includeCustom === false) {
       filteredObjects = filteredObjects.filter(obj => !obj.isCustom);
     }
-    
+
     if (options.includeSystem === false) {
       filteredObjects = filteredObjects.filter(obj => !obj.isSystem);
     }
@@ -856,7 +856,7 @@ export class TwentyClient {
       filter = { id: { eq: objectNameOrId } };
     } else {
       // Assume it's a name
-      filter = { 
+      filter = {
         or: [
           { nameSingular: { eq: objectNameOrId } },
           { namePlural: { eq: objectNameOrId } }
@@ -864,14 +864,14 @@ export class TwentyClient {
       };
     }
 
-    const result = await this.client.request(objectQuery, { filter }) as { 
-      objects: { 
-        edges: { 
-          node: ObjectMetadata & { 
-            fields: { edges: { node: FieldMetadata }[] } 
+    const result = await this.client.request(objectQuery, { filter }) as {
+      objects: {
+        edges: {
+          node: ObjectMetadata & {
+            fields: { edges: { node: FieldMetadata }[] }
           }
-        }[] 
-      } 
+        }[]
+      }
     };
 
     if (result.objects.edges.length === 0) {
@@ -940,7 +940,7 @@ export class TwentyClient {
       if (options.objectId) {
         variables.filter = { id: { eq: options.objectId } };
       } else {
-        variables.filter = { 
+        variables.filter = {
           or: [
             { nameSingular: { eq: options.objectName } },
             { namePlural: { eq: options.objectName } }
@@ -974,9 +974,9 @@ export class TwentyClient {
     }
 
     const result = await this.client.request(query, variables) as any;
-    
+
     let fields: FieldMetadata[];
-    
+
     if (options.objectId || options.objectName) {
       if (result.objects.edges.length === 0) {
         throw new Error(`Object not found: ${options.objectId || options.objectName}`);
@@ -988,19 +988,19 @@ export class TwentyClient {
 
     // Apply filters
     let filteredFields = fields;
-    
+
     if (options.activeOnly !== false) {
       filteredFields = filteredFields.filter(field => field.isActive);
     }
-    
+
     if (options.includeCustom === false) {
       filteredFields = filteredFields.filter(field => !field.isCustom);
     }
-    
+
     if (options.includeSystem === false) {
       filteredFields = filteredFields.filter(field => !field.isSystem);
     }
-    
+
     if (options.fieldType) {
       filteredFields = filteredFields.filter(field => field.type === options.fieldType);
     }
@@ -1040,7 +1040,7 @@ export class TwentyClient {
     `;
 
     const result = await this.client.request(query, { companyId }) as any;
-    
+
     const contacts = result.people.edges.map((edge: any) => ({
       id: edge.node.id,
       name: edge.node.name,
@@ -1092,7 +1092,7 @@ export class TwentyClient {
     `;
 
     const result = await this.client.request(query, { personId }) as any;
-    
+
     const opportunities = result.opportunities.edges.map((edge: any) => edge.node);
     const person = result.person;
 
@@ -1180,17 +1180,17 @@ export class TwentyClient {
           // Get contacts for this company
           const companyContacts = await this.getCompanyContacts(entityId);
           counts.contacts = companyContacts.totalContacts;
-          
+
           // Get opportunities for this company
           const companyOpps = await this.searchOpportunities({ companyId: entityId, limit: 1000 });
           counts.opportunities = companyOpps.length;
           break;
-          
+
         case 'person':
           // Get opportunities for this person
           const personOpps = await this.getPersonOpportunities(entityId);
           counts.opportunities = personOpps.totalOpportunities;
-          
+
           // Get tasks assigned to this person (would need a specific query for filtering)
           // For now, we'll skip task counting as it requires a filtered query
           counts.tasks = 0;
